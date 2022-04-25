@@ -1,0 +1,11 @@
+plugins {
+    id 'ugroxy.java-library-conventions'
+}
+
+group 'com.weng.ugroxy'
+version '1.0.0'
+
+
+dependencies {
+    implementation project(":proxy-common")
+}
