@@ -1,5 +1,7 @@
 plugins {
     id 'ugroxy.java-library-conventions'
+    id 'org.springframework.boot' version '2.6.7'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
 }
 
 group 'com.weng.ugroxy'
@@ -7,4 +9,9 @@ version '1.0.0'
 
 dependencies {
     implementation project(":proxy-common")
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
+    implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity5'
+    testImplementation 'org.springframework.security:spring-security-test'
+
 }
