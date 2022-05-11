@@ -16,6 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -166,4 +167,7 @@ public class ServerProxyConfig implements Serializable {
         return clientInetPortMap.get(clientKey);
     }
 
+    public Set<Integer> getUserPorts() {
+        return inetPortNetInfoMap.keySet();
+    }
 }

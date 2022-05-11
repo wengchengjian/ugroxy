@@ -1,12 +1,13 @@
 package com.weng.ugroxy.proxyserver;
 
 import com.weng.ugroxy.proxycommon.container.Container;
+import com.weng.ugroxy.proxycommon.exception.BindingException;
 import com.weng.ugroxy.proxycommon.protocol.handler.ProxyMessageDecoder;
 import com.weng.ugroxy.proxycommon.protocol.handler.ProxyMessageEncoder;
 import com.weng.ugroxy.proxyserver.autoconfigure.config.UgroxyServerProperties;
 import com.weng.ugroxy.proxyserver.config.ServerProxyConfig;
 import com.weng.ugroxy.proxyserver.handler.IdeaCheckHandler;
-import com.weng.ugroxy.proxyserver.handler.ProxySSLhandler;
+import com.weng.ugroxy.proxycommon.protocol.handler.ProxySSLhandler;
 import com.weng.ugroxy.proxyserver.handler.ServerHandlerDispatcher;
 import com.weng.ugroxy.proxyserver.handler.UserChannelHandler;
 import com.weng.ugroxy.proxyserver.handler.metrics.handler.BytesMetricsHandler;
@@ -17,12 +18,10 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.io.Serializable;
-import java.net.SocketAddress;
-import java.util.concurrent.TimeUnit;
+import java.util.Set;
 
 /**
  * @Author 翁丞健
@@ -100,7 +99,11 @@ public class NettyProxyServerContainer implements Container, Serializable {
             });
         } catch (InterruptedException e) {
             log.error("proxy server start failed on {}", e.getMessage());
-            stop();
+            try {
+                stop();
+            } catch (InterruptedException ex) {
+                log.error("proxy server stop failed on {}", ex.getMessage());
+            }
         }
 
         if(ugroxyServerProperties.getSsl().isEnabled()){
@@ -123,7 +126,25 @@ public class NettyProxyServerContainer implements Container, Serializable {
                 pipeline.addLast(bytesMetricsHandler);
                 pipeline.addLast(userChannelHandler);
             }
-        })
+        });
+        Set<Integer> ports = ServerProxyConfig.getInstance().getUserPorts();
+
+        ports.forEach(port -> {
+            try {
+                userBootstrap.bind(port).sync().addListener(new ChannelFutureListener() {
+                    @Override
+                    public void operationComplete(ChannelFuture future) throws Exception {
+                        if(future.isSuccess()){
+                            log.info("user proxy server bind port  success on {}", port);
+                        }else{
+                            log.info("user proxy server bind port  success on {}", port);
+                        }
+                    }
+                });
+            } catch (InterruptedException e) {
+                throw new BindingException(String.format("user proxy server bind port  failed on %d", port));
+            }
+        });
     }
 
     private void initSSLTCPTransport() {
@@ -151,7 +172,11 @@ public class NettyProxyServerContainer implements Container, Serializable {
             });
         } catch (InterruptedException e) {
             log.error("ssl proxy server start failed on {}", e.getMessage());
-            stop();
+            try {
+                stop();
+            } catch (InterruptedException ex) {
+                log.error("proxy server stop failed on {}", ex.getMessage());
+            }
         }
     }
 
@@ -165,13 +190,19 @@ public class NettyProxyServerContainer implements Container, Serializable {
     }
 
     @Override
-    public void stop() {
-
+    public void stop() throws InterruptedException {
+        bossGroup.shutdownGracefully().sync();
+        workGroup.shutdownGracefully().sync();
     }
 
     @Override
     public void reset() {
-
+        try{
+            stop();
+            start();
+        }catch (InterruptedException e) {
+            log.error("reset proxy server failed on {}", e.getMessage());
+        }
     }
 
     @Override
@@ -179,8 +210,4 @@ public class NettyProxyServerContainer implements Container, Serializable {
 
     }
 
-    @Override
-    public void close() throws IOException {
-
-    }
 }

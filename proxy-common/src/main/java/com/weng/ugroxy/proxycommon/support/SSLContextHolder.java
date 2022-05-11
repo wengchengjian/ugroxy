@@ -1,4 +1,4 @@
-package com.weng.ugroxy.proxyserver.support;
+package com.weng.ugroxy.proxycommon.support;
 
 import com.weng.ugroxy.proxycommon.utils.ApplicationContextUtil;
 import lombok.extern.slf4j.Slf4j;

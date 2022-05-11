@@ -8,11 +8,11 @@ import java.io.Serializable;
  * @Date 2022/4/25 21:58
  * @Version 1.0.0
  */
-public interface Container extends Closeable, Serializable {
+public interface Container extends Serializable {
 
     void start();
 
-    void stop();
+    void stop() throws InterruptedException;
 
     void reset();
 

@@ -1,8 +1,7 @@
-package com.weng.ugroxy.proxyserver.handler;
+package com.weng.ugroxy.proxycommon.protocol.handler;
 
+import com.weng.ugroxy.proxycommon.support.SSLContextHolder;
 import com.weng.ugroxy.proxycommon.utils.ApplicationContextUtil;
-import com.weng.ugroxy.proxyserver.autoconfigure.config.UgroxyServerProperties;
-import com.weng.ugroxy.proxyserver.support.SSLContextHolder;
 import io.netty.handler.ssl.SslHandler;
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
