@@ -42,9 +42,9 @@ public class DefaultProxyMessage<T> implements Serializable,Cloneable {
      */
     private T data;
 
-    public static  <U> DefaultProxyMessage<U> getDefaultMessage(U data){
+    public static  <U> DefaultProxyMessage<U> getDefaultMessage(U data,byte type){
         return DefaultProxyMessage.<U>builder()
-                .type(CLIENT_AUTH_RESPONSE.getCode())
+                .type(type)
                 .codec(KYRO.getCode())
                 .compress(GZIP.getCode())
                 .data(data)
