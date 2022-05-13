@@ -19,6 +19,7 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
 import javax.net.ssl.SSLContext;
@@ -36,10 +37,16 @@ import java.util.concurrent.locks.LockSupport;
 public class NettyProxyClientContainer implements Container {
 
 
+    @Autowired
+    @Qualifier("workerGroup")
     private NioEventLoopGroup workerGroup;
 
+    @Autowired
+    @Qualifier("bootstrap")
     private Bootstrap bootstrap;
 
+    @Autowired
+    @Qualifier("proxyBootstrap")
     private Bootstrap realServerBootStrap;
 
     private Config config = Config.getInstance();
@@ -62,10 +69,6 @@ public class NettyProxyClientContainer implements Container {
     private SSLContext sslContext;
 
     public NettyProxyClientContainer(){
-        workerGroup = new NioEventLoopGroup();
-
-        realServerBootStrap = new Bootstrap();
-
         realServerBootStrap.group(workerGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {
@@ -73,9 +76,6 @@ public class NettyProxyClientContainer implements Container {
                 pipeline.addLast(realServerChannelHandler);
             }
         });
-
-        bootstrap = new Bootstrap();
-
         bootstrap.group(workerGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {
@@ -155,12 +155,13 @@ public class NettyProxyClientContainer implements Container {
 
     @Override
     public void stop() throws InterruptedException {
-
+        workerGroup.shutdownGracefully();
     }
 
     @Override
-    public void reset() {
-
+    public void reset() throws InterruptedException {
+        stop();
+        start();
     }
 
     @Override

@@ -4,8 +4,10 @@ import com.weng.ugroxy.proxycommon.constants.AttributeKeyEnum;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.aop.framework.ProxyConfig;
 import org.springframework.util.CollectionUtils;
 
+import java.net.InetSocketAddress;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -45,9 +47,16 @@ public class ProxyChannelManager {
         if(clientKey == null){
     }
 }
+    public static void addUserChannelToCmdChannel(Channel cmdChannel, String userId, Channel userChannel) {
+        InetSocketAddress sa = (InetSocketAddress) userChannel.localAddress();
+        String netInfo = ProxyConfig.getInstance().getNetInfo(sa.getPort());
+        userChannel.attr(AttributeKeyEnum.TOKEN).set(userId);
+        userChannel.attr(REQUEST_NET_INFO).set(netInfo);
+        cmdChannel.attr(USER_CHANNELS).get().put(userId, userChannel);
+    }
 
-    public static Channel getCmdChannel(String clientKey) {
-        return cmdChannelMapping.get(clientKey);
+    public static Channel getCmdChannel(Integer clientKey) {
+        return portCmdChannelMapping.get(clientKey);
     }
 
     public static void addCmdChannel(List<Integer> ports, String clientKey, Channel channel) {
@@ -69,6 +78,9 @@ public class ProxyChannelManager {
     public static Channel getUserChannel(Channel cmdChannel, String token) {
         return  cmdChannel.attr(USER_CHANNELS).get().get(token);
     }
+    public static String getUserChannelToken(Channel userChannel) {
+        return userChannel.attr(AttributeKeyEnum.TOKEN).get();
+    }
 
     public static Channel removeUserChannelFromCmdChannel(Channel channel, String userId) {
         Map<String, Channel> userChannelMap = channel.attr(USER_CHANNELS).get();
@@ -76,5 +88,25 @@ public class ProxyChannelManager {
             return null;
         }
         return userChannelMap.remove(userId);
+    }
+
+    /**
+     * 获取用户请求的内网IP端口信息
+     *
+     * @param userChannel
+     * @return
+     */
+    public static String getUserChannelRequestLanInfo(Channel userChannel) {
+        return userChannel.attr(REQUEST_NET_INFO).get();
+    }
+
+    /**
+     * 获取代理控制客户端连接绑定的所有用户连接
+     *
+     * @param cmdChannel
+     * @return
+     */
+    public static Map<String, Channel> getUserChannels(Channel cmdChannel) {
+        return cmdChannel.attr(USER_CHANNELS).get();
     }
 }

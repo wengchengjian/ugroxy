@@ -14,7 +14,7 @@ public interface Container extends Serializable {
 
     void stop() throws InterruptedException;
 
-    void reset();
+    void reset() throws InterruptedException;
 
     void onChange();
 

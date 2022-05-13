@@ -23,7 +23,7 @@ public enum StatusCode {
 
     CLIENT_TRANSFER_DATA_SUCCESS(202,"数据传输成功"),
 
-    CLIENT_TRANSFER_DATA_Failure(102,"数据传输失败"),
+    CLIENT_TRANSFER_DATA_FAILURE(102,"数据传输失败"),
     /**
      * 请求失败
      */
