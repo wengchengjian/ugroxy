@@ -23,8 +23,13 @@ import static com.weng.ugroxy.proxycommon.constants.AttributeKeyEnum.*;
 @Slf4j
 public class ProxyTransforDataHandler implements ServiceHandler<DefaultProxyMessage> {
     @Override
-    public RequestType[] getSupportTypes() {
-        return new RequestType[]{CLIENT_PROXY_TRANSFER_REQUEST,CLIENT_PROXY_TRANSFER_RESPONSE};
+    public RequestType getSupportTypes() {
+        return CLIENT_PROXY_TRANSFER_REQUEST;
+    }
+
+    @Override
+    public RequestType getReturnType() {
+        return CLIENT_PROXY_TRANSFER_RESPONSE;
     }
 
     @Override

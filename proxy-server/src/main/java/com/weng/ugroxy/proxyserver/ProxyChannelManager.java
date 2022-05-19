@@ -1,6 +1,7 @@
 package com.weng.ugroxy.proxyserver;
 
 import com.weng.ugroxy.proxycommon.constants.AttributeKeyEnum;
+import com.weng.ugroxy.proxyserver.config.ServerProxyConfig;
 import io.netty.channel.Channel;
 import io.netty.util.AttributeKey;
 import lombok.extern.slf4j.Slf4j;
@@ -49,7 +50,7 @@ public class ProxyChannelManager {
 }
     public static void addUserChannelToCmdChannel(Channel cmdChannel, String userId, Channel userChannel) {
         InetSocketAddress sa = (InetSocketAddress) userChannel.localAddress();
-        String netInfo = ProxyConfig.getInstance().getNetInfo(sa.getPort());
+        String netInfo = ServerProxyConfig.getInstance().getNetInfo(sa.getPort());
         userChannel.attr(AttributeKeyEnum.TOKEN).set(userId);
         userChannel.attr(REQUEST_NET_INFO).set(netInfo);
         cmdChannel.attr(USER_CHANNELS).get().put(userId, userChannel);

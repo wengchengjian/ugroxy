@@ -6,6 +6,7 @@ import com.weng.ugroxy.proxycommon.protocol.message.DefaultProxyMessage;
 import com.weng.ugroxy.proxycommon.protocol.message.DefaultProxyResponseMessage;
 import com.weng.ugroxy.proxycommon.utils.Result;
 import io.netty.channel.ChannelHandlerContext;
+import org.apache.coyote.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,26 +21,16 @@ import static com.weng.ugroxy.proxycommon.constants.StatusCode.SUCCESS;
 public interface ServiceHandler<T> {
     Logger log = LoggerFactory.getLogger(ServiceHandler.class);
 
-    RequestType[] getSupportTypes();
+    RequestType getSupportTypes();
+
+    RequestType getReturnType();
 
     default boolean support(byte type){
-        RequestType[] supportTypes = getSupportTypes();
-        for (RequestType supportType : supportTypes) {
-            if(type == supportType.getCode()){
-                return true;
-            }
-        }
-        return false;
+        return getSupportTypes().getCode() == type;
     }
 
     default boolean support(RequestType type){
-        RequestType[] supportTypes = getSupportTypes();
-        for (RequestType supportType : supportTypes) {
-            if(type == supportType){
-                return true;
-            }
-        }
-        return false;
+        return getSupportTypes().equals(type);
     }
     default void handle(ChannelHandlerContext ctx, T proxyMessage){
             try{
@@ -66,11 +57,11 @@ public interface ServiceHandler<T> {
     }
 
     default void success(ChannelHandlerContext ctx, StatusCode statusCode){
-        success(ctx,statusCode,null);
+        success(ctx,statusCode);
     }
 
     default DefaultProxyMessage getResponse(StatusCode statusCode,Object ret){
-        return DefaultProxyMessage.getDefaultMessage(Result.of(statusCode,ret));
+        return DefaultProxyMessage.getDefaultMessage(Result.of(statusCode,ret),getReturnType().getCode());
 
     }
 
@@ -83,7 +74,7 @@ public interface ServiceHandler<T> {
     }
 
     default void failure(ChannelHandlerContext ctx, StatusCode statusCode){
-        failure(ctx, statusCode, null);
+        failure(ctx, statusCode);
     }
 
 

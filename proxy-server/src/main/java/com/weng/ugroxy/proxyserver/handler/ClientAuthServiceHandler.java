@@ -25,10 +25,16 @@ import static com.weng.ugroxy.proxycommon.constants.RequestType.*;
 @Slf4j
 public class ClientAuthServiceHandler implements ServiceHandler<DefaultProxyMessage<DefaultProxyRequestMessage>> {
     @Override
-    public RequestType[] getSupportTypes() {
+    public RequestType getSupportTypes() {
 
-        return new RequestType[]{CLIENT_AUTH_REQUEST};
+        return CLIENT_AUTH_REQUEST;
     }
+
+    @Override
+    public RequestType getReturnType() {
+        return CLIENT_AUTH_RESPONSE;
+    }
+
 
     @Override
     public void doService(ChannelHandlerContext ctx, DefaultProxyMessage<DefaultProxyRequestMessage> proxyMessage) {

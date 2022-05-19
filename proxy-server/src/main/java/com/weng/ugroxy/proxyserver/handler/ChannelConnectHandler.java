@@ -26,8 +26,13 @@ import static com.weng.ugroxy.proxycommon.constants.RequestType.*;
 @Slf4j
 public class ChannelConnectHandler implements ServiceHandler<DefaultProxyMessage<DefaultProxyRequestMessage>> {
     @Override
-    public RequestType[] getSupportTypes() {
-        return new RequestType[]{CLIENT_CONNECT_REQUEST};
+    public RequestType getSupportTypes() {
+        return CLIENT_CONNECT_REQUEST;
+    }
+
+    @Override
+    public RequestType getReturnType() {
+        return CLIENT_CONNECT_RESPONSE;
     }
 
     @Override

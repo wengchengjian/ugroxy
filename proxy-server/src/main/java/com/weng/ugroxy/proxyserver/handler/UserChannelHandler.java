@@ -39,8 +39,8 @@ public class UserChannelHandler extends SimpleChannelInboundHandler<ByteBuf> {
             byte[] bytes = new byte[msg.readableBytes()];
             msg.readBytes(bytes);
             String userId = ProxyChannelManager.getUserChannelToken(userChannel);
-            ProxyMessage proxyMessage = new ProxyMessage();
-            proxyMessage.setType(ProxyMessage.P_TYPE_TRANSFER);
+            DefaultProxyMessage proxyMessage = new DefaultProxyMessage();
+            proxyMessage.setType(RequestType.CLIENT_PROXY_TRANSFER_REQUEST.getCode());
             proxyMessage.setUri(userId);
             proxyMessage.setData(bytes);
             proxyChannel.writeAndFlush(proxyMessage);

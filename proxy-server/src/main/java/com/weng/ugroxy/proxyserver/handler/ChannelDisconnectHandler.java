@@ -18,8 +18,13 @@ import static com.weng.ugroxy.proxycommon.constants.RequestType.*;
  */
 public class ChannelDisconnectHandler implements ServiceHandler<DefaultProxyMessage<DefaultProxyRequestMessage>> {
     @Override
-    public RequestType[] getSupportTypes() {
-        return new RequestType[]{CLIENT_DISCONNECT_REQUEST};
+    public RequestType getSupportTypes() {
+        return CLIENT_DISCONNECT_REQUEST;
+    }
+
+    @Override
+    public RequestType getReturnType() {
+        return CLIENT_DISCONNECT_RESPONSE;
     }
 
     @Override

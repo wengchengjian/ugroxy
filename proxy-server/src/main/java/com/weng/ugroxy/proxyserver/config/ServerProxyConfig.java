@@ -170,4 +170,8 @@ public class ServerProxyConfig implements Serializable {
     public Set<Integer> getUserPorts() {
         return inetPortNetInfoMap.keySet();
     }
+
+    public String getNetInfo(int port) {
+        return inetPortNetInfoMap.get(port);
+    }
 }
