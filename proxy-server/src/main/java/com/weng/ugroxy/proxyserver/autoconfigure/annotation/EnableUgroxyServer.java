@@ -3,6 +3,7 @@ package com.weng.ugroxy.proxyserver.autoconfigure.annotation;
 import com.weng.ugroxy.proxyserver.autoconfigure.config.UgroxyServerProperties;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Import;
 
 import java.lang.annotation.*;
 
@@ -14,6 +15,7 @@ import java.lang.annotation.*;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
+@Import(UgroxyServerProperties.class)
 @EnableConfigurationProperties(UgroxyServerProperties.class)
 @ComponentScan(basePackages = "com.weng.ugroxy.proxyserver.handler")
 public @interface EnableUgroxyServer {

@@ -7,6 +7,7 @@ import com.weng.ugroxy.proxycommon.protocol.message.DefaultProxyRequestMessage;
 import com.weng.ugroxy.proxycommon.protocol.message.DefaultProxyResponseMessage;
 import com.weng.ugroxy.proxycommon.support.handler.ServiceHandler;
 import com.weng.ugroxy.proxyserver.ProxyChannelManager;
+import com.weng.ugroxy.proxyserver.utils.DnsRegisterUtil;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelOption;
@@ -38,40 +39,33 @@ public class ChannelConnectHandler implements ServiceHandler<DefaultProxyMessage
     @Override
     public void doService(ChannelHandlerContext ctx, DefaultProxyMessage<DefaultProxyRequestMessage> proxyMessage) {
         log.info("收到客户端连接请求");
-        String uri = proxyMessage.getData().getUri();
+        String clientKey = proxyMessage.getData().getClientKey();
 
-        if(StringUtils.isEmpty(uri)){
-            log.error("客户端连接请求uri为空");
+        String[] serverInfo = new String(proxyMessage.getData().getBody()).split(":");
+
+        if(StringUtils.isEmpty(clientKey)){
+            log.error("客户端连接请求clientKey为空");
             failure(ctx, "客户端连接请求uri为空");
             return;
         }
 
-        String[] tokens = uri.split("@");
-
-        if(tokens.length != 2){
-            failure(ctx, "客户端连接请求uri格式错误");
-            log.error("客户端连接请求uri格式错误");
+        if(serverInfo.length != 2){
+            failure(ctx, "客户端连接请求地址格式错误");
+            log.error("客户端连接请求地址格式错误");
             return;
         }
 
-        Channel cmdChannel = ProxyChannelManager.getCmdChannel(tokens[1]);
-        if (cmdChannel == null) {
-            failure(ctx,"ConnectMessage:error cmd channel key"+tokens[1]);
-            log.warn("ConnectMessage:error cmd channel key {}", tokens[1]);
-            return;
-        }
 
-        Channel userChannel = ProxyChannelManager.getUserChannel(cmdChannel, tokens[0]);
+        String host = serverInfo[0];
 
-        if(userChannel!=null){
-            ctx.channel().attr(AttributeKeyEnum.TOKEN).set(tokens[0]);
-            ctx.channel().attr(AttributeKeyEnum.CLIENT_KEY).set(tokens[1]);
-            ctx.channel().attr(AttributeKeyEnum.NEXT_CHANNEL).set(userChannel);
+        Integer ip = Integer.parseInt(serverInfo[1]);
 
-            userChannel.attr(AttributeKeyEnum.NEXT_CHANNEL).set(ctx.channel());
-            // 代理客户端与后端服务器连接成功，修改用户连接为可读状态
-            userChannel.config().setOption(ChannelOption.AUTO_READ, true);
-        }
+        // 生成动态域名
+        String dns = DnsRegisterUtil.registerDns();
 
+        ProxyChannelManager.addDnsToClientKey(dns,clientKey);
+
+        // 返回dns域名
+        success(ctx,dns);
     }
 }

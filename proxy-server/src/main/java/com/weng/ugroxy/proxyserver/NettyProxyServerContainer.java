@@ -18,6 +18,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -57,23 +58,24 @@ public class NettyProxyServerContainer implements Container, Serializable {
     @Autowired
     private UserChannelHandler userChannelHandler;
 
+    @Autowired
+    @Qualifier("bootstrap")
     private ServerBootstrap bootstrap;
-
+    @Autowired
+    @Qualifier("sslBootstrap")
     private ServerBootstrap sslBootstrap;
 
+    @Autowired
+    @Qualifier("userBootstrap")
     private ServerBootstrap userBootstrap;
 
-
+    @Autowired
+    @Qualifier("bossGroup")
     private NioEventLoopGroup bossGroup;
 
+    @Autowired
+    @Qualifier("workGroup")
     private NioEventLoopGroup workGroup;
-
-
-    public NettyProxyServerContainer(){
-        bossGroup = new NioEventLoopGroup();
-        workGroup = new NioEventLoopGroup();
-        bootstrap = new ServerBootstrap();
-    }
 
     @Override
     public void start() {
@@ -116,9 +118,6 @@ public class NettyProxyServerContainer implements Container, Serializable {
     }
 
     private void startUserPort() {
-        if(userBootstrap == null){
-            userBootstrap = new ServerBootstrap();
-        }
         userBootstrap.group(bossGroup, workGroup).channel(NioServerSocketChannel.class).childHandler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {
@@ -127,6 +126,7 @@ public class NettyProxyServerContainer implements Container, Serializable {
                 pipeline.addLast(userChannelHandler);
             }
         });
+
         Set<Integer> ports = ServerProxyConfig.getInstance().getUserPorts();
 
         ports.forEach(port -> {
@@ -149,7 +149,6 @@ public class NettyProxyServerContainer implements Container, Serializable {
 
     private void initSSLTCPTransport() {
         // 初始化
-        sslBootstrap = new ServerBootstrap();
         sslBootstrap.group(bossGroup, workGroup).channel(NioServerSocketChannel.class).childHandler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {

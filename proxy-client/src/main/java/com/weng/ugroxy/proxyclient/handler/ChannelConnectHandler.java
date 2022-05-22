@@ -12,10 +12,11 @@ import com.weng.ugroxy.proxycommon.utils.SequenceGenerator;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+
+import java.util.Optional;
 
 import static com.weng.ugroxy.proxycommon.constants.RequestType.CLIENT_CONNECT_REQUEST;
 import static com.weng.ugroxy.proxycommon.constants.RequestType.CLIENT_DISCONNECT_REQUEST;
@@ -31,25 +32,27 @@ public class ChannelConnectHandler implements ServiceHandler<DefaultProxyMessage
 
 
     @Autowired
-    @Qualifier("bootstrap")
-    private Bootstrap bootstrap;
+    @Qualifier("userBootstrap")
+    private Bootstrap userBootstrap;
 
     @Autowired
     @Qualifier("proxyBootstrap")
     private Bootstrap proxyBootstrap;
 
     @Override
-    public RequestType[] getSupportTypes() {
-        return new RequestType[]{CLIENT_CONNECT_REQUEST};
+    public RequestType getSupportTypes() {
+        return CLIENT_CONNECT_REQUEST;
+    }
+
+    @Override
+    public RequestType getReturnType() {
+        return null;
     }
 
     @Override
     public void doService(ChannelHandlerContext ctx, DefaultProxyMessage<DefaultProxyRequestMessage> proxyMessage) {
 
-
-        final Channel  cmdChannel = ctx.channel();
-
-        final String userId = proxyMessage.getData().getUri();
+        final String clientKey = proxyMessage.getData().getClientKey();
 
         String[] serverInfo = new String(proxyMessage.getData().getBody()).split(":");
 
@@ -57,65 +60,36 @@ public class ChannelConnectHandler implements ServiceHandler<DefaultProxyMessage
 
         Integer port = Integer.parseInt(serverInfo[1]);
 
-        bootstrap.connect(ip, port).addListener(new ChannelFutureListener() {
+        // 发送连接请求到代理服务器，让他返回一个动态域名
 
-            @Override
-            public void operationComplete(ChannelFuture future) throws Exception {
+        Channel cmdChannel = ClientChannelManager.getCmdChannel();
 
-                // 连接后端服务器成功
-                if (future.isSuccess()) {
-                    final Channel realServerChannel = future.channel();
-                    log.debug("connect realserver success, {}", realServerChannel);
+        sendConnectRequest(cmdChannel,proxyMessage).ifPresent(future->{
+            future.addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if(future.isSuccess()){
+                        userBootstrap.connect(ip, port).addListener(new ChannelFutureListener() {
+                            @Override
+                            public void operationComplete(ChannelFuture future) throws Exception {
+                                if(future.isSuccess()){
+                                    Channel userChannel = future.channel();
 
-                    realServerChannel.config().setOption(ChannelOption.AUTO_READ, false);
+                                    ClientChannelManager.addRealServerChannel(clientKey,userChannel);
+                                }
 
-                    // 获取连接
-                    ClientChannelManager.borrowProxyChannel(proxyBootstrap, new NettyProxyChannelBorrowListener() {
-
-                        @Override
-                        public void success(Channel channel) {
-                            // 连接绑定
-                            channel.attr(AttributeKeyEnum.NEXT_CHANNEL).set(realServerChannel);
-                            realServerChannel.attr(AttributeKeyEnum.NEXT_CHANNEL).set(channel);
-
-                            DefaultProxyRequestMessage requestMessage = DefaultProxyRequestMessage.builder()
-                                    .seqId(SequenceGenerator.next())
-                                    .body(null)
-                                    .uri(userId + "@" + Config.getInstance().getStringProperty("client.key","ugroxy"))
-                                    .build();
-                            // 远程绑定
-                            DefaultProxyMessage proxyMessage = DefaultProxyMessage.getDefaultMessage(requestMessage, CLIENT_CONNECT_REQUEST.getCode());
-                            channel.writeAndFlush(proxyMessage);
-
-                            realServerChannel.config().setOption(ChannelOption.AUTO_READ, true);
-                            ClientChannelManager.addRealServerChannel(userId, realServerChannel);
-                            ClientChannelManager.setRealServerChannelToken(realServerChannel, userId);
-                        }
-
-                        @Override
-                        public void error(Throwable cause) {
-                            DefaultProxyRequestMessage requestMessage = DefaultProxyRequestMessage.builder()
-                                    .seqId(SequenceGenerator.next())
-                                    .body(null)
-                                    .uri(userId)
-                                    .build();
-                            // 远程绑定 断开连接
-                            DefaultProxyMessage proxyMessage = DefaultProxyMessage.getDefaultMessage(requestMessage, CLIENT_DISCONNECT_REQUEST.getCode());
-                            cmdChannel.writeAndFlush(proxyMessage);
-                        }
-                    });
-
-                } else {
-                    DefaultProxyRequestMessage requestMessage = DefaultProxyRequestMessage.builder()
-                            .seqId(SequenceGenerator.next())
-                            .body(null)
-                            .uri(userId)
-                            .build();
-                    // 远程绑定 断开连接
-                    DefaultProxyMessage proxyMessage = DefaultProxyMessage.getDefaultMessage(requestMessage, CLIENT_DISCONNECT_REQUEST.getCode());
-                    cmdChannel.writeAndFlush(proxyMessage);
+                            }
+                        });
+                    }
                 }
-            }
+            });
         });
+    }
+
+    private Optional<ChannelFuture> sendConnectRequest(Channel cmdChannel, DefaultProxyMessage<DefaultProxyRequestMessage> message) {
+        if(cmdChannel.isWritable()){
+            return Optional.of(cmdChannel.writeAndFlush(message));
+        }
+        return Optional.empty();
     }
 }

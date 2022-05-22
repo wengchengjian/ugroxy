@@ -22,7 +22,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
  * @Version 1.0.0
  */
 @Slf4j
-
 public class ClientChannelManager {
 
     private static final AttributeKey<Boolean> USER_CHANNEL_WRITEABLE = AttributeKey.newInstance("user_channel_writeable");
@@ -33,11 +32,21 @@ public class ClientChannelManager {
 
     private static final Map<String, Channel> REAL_SERVER_CHANNEL = new ConcurrentHashMap<>(64);
 
+    private static final Map<String,String> DNS_TO_CLIENTKEY  = new ConcurrentHashMap<>();
+
     private static final ConcurrentLinkedQueue<Channel> PROXY_CHANNEL_POOL = new ConcurrentLinkedQueue<>();
 
     private static volatile Channel CMD_CHANNEL;
 
     private static Config config = Config.getInstance();
+
+    public static void addDnsToClientKey(String clientKey,String dns){
+        DNS_TO_CLIENTKEY.put(clientKey,dns);
+    }
+
+    public static String getDnsByClientKey(String clientKey){
+        return DNS_TO_CLIENTKEY.get(clientKey);
+    }
 
     public static void borrowProxyChannel(Bootstrap bootstrap,final NettyProxyChannelBorrowListener listener) {
         Channel channel = PROXY_CHANNEL_POOL.poll();
@@ -92,12 +101,12 @@ public class ClientChannelManager {
         return realServerChannel.attr(AttributeKeyEnum.TOKEN).get();
     }
 
-    public static Channel getRealServerChannel(String token) {
-        return REAL_SERVER_CHANNEL.get(token);
+    public static Channel getRealServerChannel(String clientKey) {
+        return REAL_SERVER_CHANNEL.get(clientKey);
     }
 
-    public static void addRealServerChannel(String token, Channel realServerChannel) {
-        REAL_SERVER_CHANNEL.put(token, realServerChannel);
+    public static void addRealServerChannel(String clientKey, Channel realServerChannel) {
+        REAL_SERVER_CHANNEL.put(clientKey, realServerChannel);
     }
 
     public static Channel removeRealServerChannel(String token) {

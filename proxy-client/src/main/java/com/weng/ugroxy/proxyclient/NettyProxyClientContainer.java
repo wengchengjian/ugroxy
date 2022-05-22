@@ -1,11 +1,13 @@
 package com.weng.ugroxy.proxyclient;
 
+import com.weng.ugroxy.proxyclient.autoconfigure.properties.UgroxyClientProperties;
 import com.weng.ugroxy.proxyclient.handler.ProxyClientChannelHandler;
 import com.weng.ugroxy.proxyclient.handler.RealServerChannelHandler;
 import com.weng.ugroxy.proxycommon.constants.CodecEnum;
 import com.weng.ugroxy.proxycommon.constants.CompressEnum;
 import com.weng.ugroxy.proxycommon.constants.RequestType;
 import com.weng.ugroxy.proxycommon.container.Container;
+import com.weng.ugroxy.proxycommon.exception.RetryException;
 import com.weng.ugroxy.proxycommon.protocol.handler.ProxyMessageDecoder;
 import com.weng.ugroxy.proxycommon.protocol.handler.ProxyMessageEncoder;
 import com.weng.ugroxy.proxycommon.protocol.handler.ProxySSLhandler;
@@ -20,6 +22,7 @@ import io.netty.channel.socket.nio.NioSocketChannel;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.stereotype.Component;
 
 import javax.net.ssl.SSLContext;
@@ -32,22 +35,21 @@ import java.util.concurrent.locks.LockSupport;
  * @Date 2022/5/11 22:55
  * @Version 1.0.0
  */
-@Component
 @Slf4j
 public class NettyProxyClientContainer implements Container {
 
-
+    //TODO 使用一个bootstrap还是多个有待思考
     @Autowired
     @Qualifier("workerGroup")
     private NioEventLoopGroup workerGroup;
 
     @Autowired
-    @Qualifier("bootstrap")
-    private Bootstrap bootstrap;
+    @Qualifier("userBootstrap")
+    private Bootstrap userBootstrap;
 
     @Autowired
     @Qualifier("proxyBootstrap")
-    private Bootstrap realServerBootStrap;
+    private Bootstrap proxyBootstrap;
 
     private Config config = Config.getInstance();
     @Autowired
@@ -65,18 +67,23 @@ public class NettyProxyClientContainer implements Container {
     @Autowired
     private ProxySSLhandler proxySSLhandler;
 
+    @Autowired
+    private UgroxyClientProperties ugroxyClientProperties;
+
 
     private SSLContext sslContext;
 
     public NettyProxyClientContainer(){
-        realServerBootStrap.group(workerGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
+        // 初始化用户本地bootstrap
+        userBootstrap.group(workerGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
                 pipeline.addLast(realServerChannelHandler);
             }
         });
-        bootstrap.group(workerGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
+        // 初始化代理客户端bootstrap
+        proxyBootstrap.group(workerGroup).channel(NioSocketChannel.class).handler(new ChannelInitializer<NioSocketChannel>() {
             @Override
             protected void initChannel(NioSocketChannel ch) throws Exception {
                 ChannelPipeline pipeline = ch.pipeline();
@@ -97,8 +104,15 @@ public class NettyProxyClientContainer implements Container {
 
     private static Integer waitTime = 0;
 
-    private synchronized void connectProxyServer() {
+    private synchronized void connectServer() {
+        // 连接到代理服务端
+        connectProxyServer();
 
+        // 连接到用户需要代理的服务端
+        connectUserServer();
+    }
+
+    private synchronized void connectProxyServer(){
         try {
             // 等待重试时间,时间逐渐递增
             waitRetryTime();
@@ -106,18 +120,23 @@ public class NettyProxyClientContainer implements Container {
             throw new RuntimeException(e);
         }
 
-        if(TIMES < config.getIntProperty("client.retry.times",5)){
+        if(TIMES < ugroxyClientProperties.getRetry().getTimes()){
             TIMES++;
+            log.info("正在进行第{}次连接重试",TIMES);
+        }else{
+            throw new RetryException("重试次数已达上限");
         }
 
-        bootstrap.connect(config.getStringProperty("server.host","127.0.0.1"), config.getIntProperty("server.port",7869)).addListener(new ChannelFutureListener() {
+        proxyBootstrap.connect(ugroxyClientProperties.getHost(), ugroxyClientProperties.getPort()).addListener(new ChannelFutureListener() {
             @Override
             public void operationComplete(ChannelFuture future) throws Exception {
                 if (future.isSuccess()) {
-                    // 连接成功，向服务器发送客户端认证信息（clientKey）
-                    ClientChannelManager.setCmdChannel(future.channel());
+                    Channel cmdChannel = future.channel();
+                    // 设置与代理服务器相连的channel
+                    ClientChannelManager.setCmdChannel(cmdChannel);
 
-                    authToServer(future.channel());
+                    // 连接成功，向服务器发送客户端认证信息（clientKey）
+                    authToServer(cmdChannel);
 
                     log.info("connect proxy server success, {}", future.channel());
                 } else {
@@ -128,15 +147,37 @@ public class NettyProxyClientContainer implements Container {
         });
     }
 
+    private synchronized void connectUserServer(){
+
+        for (UgroxyClientProperties.Proxy proxy : ugroxyClientProperties.getProxyList()) {
+            userBootstrap.connect(proxy.getHost(), proxy.getPort()).addListener(new ChannelFutureListener() {
+                @Override
+                public void operationComplete(ChannelFuture future) throws Exception {
+                    if (future.isSuccess()) {
+                        Channel userChannel = future.channel();
+                        // 设置与代理服务器相连的channel
+                        ClientChannelManager.addRealServerChannel(proxy.getClientKey(),userChannel);
+
+                        log.info("connect user server success, {}", future.channel().localAddress());
+                    } else {
+                        log.warn("connect user server failed: {}", future.channel().localAddress());
+                    }
+                }
+            });
+        }
+
+    }
+
     private void waitRetryTime() throws InterruptedException {
+        log.info("等待重试时间：{}ms",waitTime);
         TimeUnit.MILLISECONDS.sleep(waitTime);
         incrementWaitTime();
     }
 
     private synchronized void incrementWaitTime() {
-        int increment = config.getIntProperty("client.retry.wait.increment", 1000);
+        int increment = ugroxyClientProperties.getRetry().getWaitTime();
 
-        int maxWaitTime = config.getIntProperty("client.retry.wait.maxTime", 60000);
+        int maxWaitTime = ugroxyClientProperties.getRetry().getMaxTime();
 
         if(waitTime+increment < maxWaitTime){
             waitTime += increment;
@@ -147,7 +188,7 @@ public class NettyProxyClientContainer implements Container {
 
     public void authToServer(Channel channel){
         DefaultProxyRequestMessage message = DefaultProxyRequestMessage.builder()
-                .body(null).seqId(SequenceGenerator.next()).uri(config.getStringProperty("client.key","anonymous")).build();
+                .body(null).seqId(SequenceGenerator.next()).clientKey(ugroxyClientProperties.getClientKey()).build();
 
         DefaultProxyMessage<DefaultProxyRequestMessage> proxyMessage = DefaultProxyMessage.getDefaultMessage(message,RequestType.CLIENT_AUTH_REQUEST.getCode());
         channel.writeAndFlush(proxyMessage);

@@ -13,4 +13,6 @@ rootProject.name = 'ugroxy'
 include 'proxy-server'
 include 'proxy-client'
 include 'proxy-common'
+include 'proxy-sh'
+include 'test'
 

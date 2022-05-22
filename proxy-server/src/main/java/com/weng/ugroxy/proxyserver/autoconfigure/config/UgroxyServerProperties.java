@@ -14,7 +14,7 @@ public class UgroxyServerProperties {
 
     private String host = "localhost";
 
-    private int port = 7891;
+    private int port = 4396;
 
     private SSL ssl = new SSL();
 

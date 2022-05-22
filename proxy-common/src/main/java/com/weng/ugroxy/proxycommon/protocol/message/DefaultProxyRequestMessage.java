@@ -23,9 +23,7 @@ public class DefaultProxyRequestMessage {
     /**
      * 消息请求的源地址
      */
-    private String uri;
-//
-//    private String queryParms;
+    private String clientKey;
 
     private byte[] body;
 

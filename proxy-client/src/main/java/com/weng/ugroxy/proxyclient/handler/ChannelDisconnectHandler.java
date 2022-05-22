@@ -22,8 +22,13 @@ import static com.weng.ugroxy.proxycommon.constants.RequestType.CLIENT_DISCONNEC
 @Service
 public class ChannelDisconnectHandler implements ServiceHandler<DefaultProxyMessage<DefaultProxyRequestMessage>> {
     @Override
-    public RequestType[] getSupportTypes() {
-        return new RequestType[]{CLIENT_DISCONNECT_REQUEST};
+    public RequestType getSupportTypes() {
+        return CLIENT_DISCONNECT_REQUEST;
+    }
+
+    @Override
+    public RequestType getReturnType() {
+        return null;
     }
 
     @Override

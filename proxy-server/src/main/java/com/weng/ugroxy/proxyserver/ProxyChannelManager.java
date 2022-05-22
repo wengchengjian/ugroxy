@@ -33,6 +33,16 @@ public class ProxyChannelManager {
 
     private static final Map<String,Channel> cmdChannelMapping = new ConcurrentHashMap<>();
 
+    private static final Map<String,String> DNS_TO_CLIENTKEY = new ConcurrentHashMap<>();
+
+
+    public static void addDnsToClientKey(String dns,String clientKey){
+        DNS_TO_CLIENTKEY.put(dns,clientKey);
+    }
+
+    public static String getClientKeyByDns(String dns){
+        return DNS_TO_CLIENTKEY.get(dns);
+    }
 
     public static void removeCmdChannel(Channel channel){
         log.info("user client closed channel, will remove user cmd channel");
@@ -56,21 +66,21 @@ public class ProxyChannelManager {
         cmdChannel.attr(USER_CHANNELS).get().put(userId, userChannel);
     }
 
-    public static Channel getCmdChannel(Integer clientKey) {
-        return portCmdChannelMapping.get(clientKey);
+    public static Channel getCmdChannel(String clientKey) {
+        return cmdChannelMapping.get(clientKey);
     }
 
-    public static void addCmdChannel(List<Integer> ports, String clientKey, Channel channel) {
-        if(CollectionUtils.isEmpty(ports)){
-            log.error("add cmd channel failed, ports is empty");
-            throw new IllegalArgumentException("port can not be null");
-        }
-
-        for(int port : ports){
-            portCmdChannelMapping.put(port,channel);
-        }
-
-        channel.attr(CHANNEL_PORTS).set(ports);
+    public static void addCmdChannel(String clientKey, Channel channel) {
+//        if(CollectionUtils.isEmpty(ports)){
+//            log.error("add cmd channel failed, ports is empty");
+//            throw new IllegalArgumentException("port can not be null");
+//        }
+//
+//        for(int port : ports){
+//            portCmdChannelMapping.put(port,channel);
+//        }
+//
+//        channel.attr(CHANNEL_PORTS).set(ports);
         channel.attr(CHANNEL_CLIENT_KEY).set(clientKey);
         channel.attr(USER_CHANNELS).set(new ConcurrentHashMap<String,Channel>());
         cmdChannelMapping.put(clientKey,channel);

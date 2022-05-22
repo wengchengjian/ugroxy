@@ -9,8 +9,10 @@ import com.weng.ugroxy.proxyserver.config.ServerProxyConfig;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
+
 import static com.weng.ugroxy.proxycommon.constants.StatusCode.*;
 import java.util.List;
 
@@ -23,7 +25,7 @@ import static com.weng.ugroxy.proxycommon.constants.RequestType.*;
  */
 @Service
 @Slf4j
-public class ClientAuthServiceHandler implements ServiceHandler<DefaultProxyMessage<DefaultProxyRequestMessage>> {
+public class ClientAuthHandler implements ServiceHandler<DefaultProxyMessage<DefaultProxyRequestMessage>> {
     @Override
     public RequestType getSupportTypes() {
 
@@ -36,14 +38,18 @@ public class ClientAuthServiceHandler implements ServiceHandler<DefaultProxyMess
     }
 
 
+    /**
+     * 服务将clientKey 对应的 channel存储起来
+     * @param ctx
+     * @param proxyMessage
+     */
     @Override
     public void doService(ChannelHandlerContext ctx, DefaultProxyMessage<DefaultProxyRequestMessage> proxyMessage) {
         try{
-            String clientKey = proxyMessage.getData().getUri();
+            String clientKey = proxyMessage.getData().getClientKey();
 
-            List<Integer> ports = ServerProxyConfig.getInstance().getClientInetPorts(clientKey);
-
-            if(CollectionUtils.isEmpty(ports)){
+            if(StringUtils.isBlank(clientKey)){
+                //TODO 优化提示信息
                 log.error("clientKey:{} not found ,{}",clientKey,ctx.channel());
                 failure(ctx,CLIENT_AUTH_Failure);
                 return;
@@ -52,18 +58,19 @@ public class ClientAuthServiceHandler implements ServiceHandler<DefaultProxyMess
             Channel channel = ProxyChannelManager.getCmdChannel(clientKey);
 
             if(channel != null){
+                //TODO 优化提示信息
                 log.error("exist channel for key {}, {}", clientKey, channel);
                 failure(ctx,CLIENT_AUTH_Failure);
                 return;
             }
-            log.info("set port => channel, {}, {}, {}", clientKey, ports, ctx.channel());
+            log.info("set clientKey => channel, {}, {}", clientKey, ctx.channel());
 
-            ProxyChannelManager.addCmdChannel(ports,clientKey, ctx.channel());
+            ProxyChannelManager.addCmdChannel(clientKey, ctx.channel());
 
             success(ctx,CLIENT_AUTH_SUCCESS);
 
         }catch (IllegalArgumentException e){
-            log.info("clientKey:{} auth failed ,{}",proxyMessage.getData().getUri(),ctx.channel());
+            log.info("clientKey:{} auth failed ,{}",proxyMessage.getData().getClientKey(),ctx.channel());
             failure(ctx,CLIENT_AUTH_Failure);
         }
     }
